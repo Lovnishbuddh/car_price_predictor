@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Details | Car Price Predictor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a class="brand" href="{{ url_for('index') }}">
+        <span class="brand-icon">🚗</span> CarPrice<span class="brand-accent">AI</span>
+      </a>
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('about') }}" class="active">Project Details</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="page-head">
+    <h1>Project Details</h1>
+    <p>Everything about how this Car Price Predictor was built &mdash; dataset, workflow, algorithms and results.</p>
+  </header>
+
+  <main class="container about">
+
+    <!-- ================= PROBLEM ================= -->
+    <section class="card">
+      <h2 class="card-title">1. The Problem</h2>
+      <p>India's used-car market is huge and unorganized. Two identical-looking cars
+         can be quoted very different prices, and buyers/sellers have no reliable way
+         to know a fair price. <strong>Goal:</strong> build a Machine Learning model that
+         predicts a realistic resale price from the car's basic specifications.</p>
+    </section>
+
+    <!-- ================= DATASET ================= -->
+    <section class="card">
+      <h2 class="card-title">2. The Dataset</h2>
+      <p><strong>quikr_car.csv</strong> &mdash; used-car listings scraped from Quikr.com.</p>
+      <table class="data-table">
+        <tr><th>Column</th><th>Meaning</th><th>Example</th></tr>
+        <tr><td>name</td><td>Car model name</td><td>Hyundai i20 Sportz</td></tr>
+        <tr><td>company</td><td>Manufacturer / brand</td><td>Hyundai</td></tr>
+        <tr><td>year</td><td>Year of purchase</td><td>2014</td></tr>
+        <tr><td>Price</td><td>Asking price (target)</td><td>3,25,000</td></tr>
+        <tr><td>kms_driven</td><td>Total distance driven</td><td>28,000 kms</td></tr>
+        <tr><td>fuel_type</td><td>Petrol / Diesel / LPG</td><td>Petrol</td></tr>
+      </table>
+      <p><strong>Data quality issues found and fixed</strong> (this dataset is deliberately messy,
+         which makes cleaning the most interesting part):</p>
+      <ul class="nice-list">
+        <li>35 listings with <code>"Ask For Price"</code> instead of a number &rarr; removed</li>
+        <li>Years stored as junk text (<code>"r 15"</code>, <code>"TOUR"</code>, <code>"150k"</code>) &rarr; removed</li>
+        <li>Prices as comma-strings (<code>"4,25,000"</code>) and one impossible <code>85,00,003</code> &rarr; parsed &amp; range-filtered</li>
+        <li>Kilometres as text (<code>"45,000 kms"</code>), blanks, and a 4,00,000&nbsp;km outlier &rarr; parsed &amp; capped</li>
+        <li>55 rows missing fuel type &rarr; removed</li>
+        <li>Brand names in mixed case (<code>MARUTI</code>, <code>tata</code>) and fake sellers (<code>"URJENT"</code>) &rarr; normalised &amp; filtered</li>
+      </ul>
+      <p>Result: <strong>892 raw rows &rarr; 797 clean rows</strong>, 18 brands, 242 models,
+         prices from Rs 30,000 to Rs 29 lakh.</p>
+    </section>
+
+    <!-- ================= WORKFLOW ================= -->
+    <section class="card">
+      <h2 class="card-title">3. The Machine Learning Workflow</h2>
+      <ol class="nice-list">
+        <li><strong>Load</strong> the raw CSV with pandas</li>
+        <li><strong>Clean</strong> it (rules above) in <code>src/preprocess.py</code></li>
+        <li><strong>Engineer a feature:</strong> year &rarr; <code>Car_Age = 2026 &minus; year</code> (age drives depreciation)</li>
+        <li><strong>Encode categories:</strong> OneHotEncoder turns name / company / fuel_type into 0&ndash;1 columns</li>
+        <li><strong>Split:</strong> 80% training (637 rows) / 20% testing (160 rows)</li>
+        <li><strong>Train</strong> three algorithms and compare them fairly</li>
+        <li><strong>Evaluate</strong> with R&sup2;, MAE, MSE, RMSE + 5-fold cross-validation</li>
+        <li><strong>Save</strong> the best model with joblib &rarr; <code>models/car_price_model.joblib</code></li>
+        <li><strong>Serve:</strong> Flask loads the model once and answers /predict requests</li>
+      </ol>
+    </section>
+
+    <!-- ================= MODELS ================= -->
+    <section class="card">
+      <h2 class="card-title">4. Algorithms Compared (real results)</h2>
+      <table class="data-table metrics-table">
+        <tr><th>Model</th><th>R&sup2; (test)</th><th>MAE</th><th>RMSE</th><th>5-fold CV R&sup2;</th></tr>
+        {% for name, m in meta.metrics.items() %}
+        <tr class="{{ 'winner' if name == meta.best_model else '' }}">
+          <td>{{ name }}{% if name == meta.best_model %} &#9733; selected{% endif %}</td>
+          <td>{{ m.r2 }}</td>
+          <td>Rs {{ '{:,.0f}'.format(m.mae) }}</td>
+          <td>Rs {{ '{:,.0f}'.format(m.rmse) }}</td>
+          <td>{{ m.cv_r2_mean }} &plusmn; {{ m.cv_r2_std }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <p><strong>Why tree ensembles?</strong> A car's price does not depend on its features in a
+         straight line &mdash; a 5-year-old luxury SUV behaves very differently from a 5-year-old
+         hatchback. Decision-tree ensembles capture these non-linear patterns and interactions
+         automatically, are robust to outliers, and work well without feature scaling.
+         <em>Extra Trees</em> ("Extremely Randomized Trees") is Random Forest's cousin: it also
+         builds many trees and averages them, but picks split thresholds randomly, which adds
+         diversity and reduced overfitting &mdash; and it won our comparison.</p>
+    </section>
+
+    <!-- ================= METRICS EXPLAINED ================= -->
+    <section class="card">
+      <h2 class="card-title">5. Evaluation Metrics Explained</h2>
+      <ul class="nice-list">
+        <li><strong>R&sup2; (coefficient of determination)</strong> &mdash; how much of the price
+            variation the model explains, from 0 to 1. Our CV value
+            <strong>{{ meta.metrics[meta.best_model].cv_r2_mean }}</strong> means roughly
+            {{ (meta.metrics[meta.best_model].cv_r2_mean * 100) | round(0, 'common') | int }}% explained.</li>
+        <li><strong>MAE (Mean Absolute Error)</strong> &mdash; average miss in rupees;
+            on average predictions are off by about
+            <strong>Rs {{ '{:,.0f}'.format(meta.metrics[meta.best_model].mae) }}</strong>.</li>
+        <li><strong>MSE / RMSE</strong> &mdash; squared error punishes big misses;
+            RMSE (Rs {{ '{:,.0f}'.format(meta.metrics[meta.best_model].rmse) }}) is in rupees again.</li>
+        <li><strong>Cross-validation</strong> &mdash; the 797 rows are split into 5 folds; the model
+            is trained and tested 5 times so every row is tested once. More reliable than a
+            single train/test split.</li>
+      </ul>
+    </section>
+
+    <!-- ================= EDA ================= -->
+    <section class="card">
+      <h2 class="card-title">6. Exploratory Data Analysis</h2>
+      <p>Charts generated by <code>src/eda.py</code> from the cleaned data:</p>
+      <div class="eda-grid">
+        <figure><img src="{{ url_for('static', filename='images/eda/01_price_distribution.png') }}" alt="Price distribution">
+          <figcaption>Most used cars sell below Rs 5 lakh; the distribution is right-skewed.</figcaption></figure>
+        <figure><img src="{{ url_for('static', filename='images/eda/02_age_vs_price.png') }}" alt="Age vs price">
+          <figcaption>Average price falls steadily as cars get older &mdash; depreciation.</figcaption></figure>
+        <figure><img src="{{ url_for('static', filename='images/eda/03_company_vs_price.png') }}" alt="Company vs price">
+          <figcaption>Luxury brands (Audi, BMW, Mercedes) clearly hold higher median prices.</figcaption></figure>
+        <figure><img src="{{ url_for('static', filename='images/eda/04_fuel_type.png') }}" alt="Fuel type">
+          <figcaption>Diesel cars in this dataset tend to be priced above Petrol ones.</figcaption></figure>
+        <figure><img src="{{ url_for('static', filename='images/eda/05_kms_vs_price.png') }}" alt="Kms vs price">
+          <figcaption>Higher odometer readings push prices down (with lots of natural noise).</figcaption></figure>
+        <figure><img src="{{ url_for('static', filename='images/eda/06_correlation_heatmap.png') }}" alt="Correlations">
+          <figcaption>Age correlates negatively with price; km driven only weakly.</figcaption></figure>
+        <figure><img src="{{ url_for('static', filename='images/eda/07_top_models.png') }}" alt="Top models">
+          <figcaption>The most frequently listed models &mdash; mostly Maruti &amp; Hyundai.</figcaption></figure>
+        <figure><img src="{{ url_for('static', filename='images/eda/09_feature_importance.png') }}" alt="Feature importance">
+          <figcaption>What the model relies on most: model name, brand and age.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- ================= FUTURE ================= -->
+    <section class="card">
+      <h2 class="card-title">7. Advantages, Limitations &amp; Future Scope</h2>
+      <div class="two-col">
+        <div>
+          <h3>Advantages</h3>
+          <ul class="nice-list">
+            <li>Instant, data-driven price estimate instead of guesswork</li>
+            <li>Handles messy real-world scraped data through a documented cleaning pipeline</li>
+            <li>Simple, fast, runs on any laptop; model is versioned with joblib</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Limitations</h3>
+          <ul class="nice-list">
+            <li>~800 rows is small; rare brands/models are learned poorly</li>
+            <li>Features are limited &mdash; no transmission, owner count, location or accident history</li>
+            <li>Data is from one website and a few years old</li>
+          </ul>
+        </div>
+      </div>
+      <h3>Future Scope</h3>
+      <ul class="nice-list">
+        <li>Add features (transmission, owners, city, accident history) from a larger scrape</li>
+        <li>Retrain regularly so prices track the live market</li>
+        <li>Deploy on the cloud with a proper frontend and user accounts</li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Car Price Predictor &middot; AI &amp; Data Science Internship Project &middot;
+       <a href="{{ url_for('index') }}">Back to predictor</a></p>
+  </footer>
+</body>
+</html>

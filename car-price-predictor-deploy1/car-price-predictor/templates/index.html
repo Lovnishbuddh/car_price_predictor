@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Predict the fair resale price of a used car in India with Machine Learning.">
+  <title>Car Price Predictor | ML Web App</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a class="brand" href="{{ url_for('index') }}">
+        <span class="brand-icon">🚗</span> CarPrice<span class="brand-accent">AI</span>
+      </a>
+      <div class="nav-links">
+        <a href="{{ url_for('index') }}" class="active">Home</a>
+        <a href="{{ url_for('about') }}">Project Details</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <span class="hero-tag">Machine Learning &middot; {{ meta.best_model }}</span>
+      <h1>What is your used car<br><span class="gradient-text">really worth?</span></h1>
+      <p class="hero-sub">
+        Get an instant, data-driven price estimate for any used car.
+        Our model was trained on {{ meta.train_rows + meta.test_rows }} real
+        car listings and achieves an R&sup2; of
+        {{ meta.metrics[meta.best_model].cv_r2_mean }} in cross-validation.
+      </p>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- ================= PREDICTION FORM ================= -->
+    <section class="card form-card">
+      <h2 class="card-title">Estimate your car's price</h2>
+      <p class="card-sub">Fill in the details below &mdash; the prediction appears instantly, no page reload.</p>
+
+      <form id="predict-form" novalidate>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label for="company">Company (brand)</label>
+            <select id="company" name="company" required>
+              <option value="" disabled selected>Select company</option>
+              {% for c in meta.companies %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+            <div class="error-msg"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="name">Car model</label>
+            <select id="name" name="name" required disabled>
+              <option value="" disabled selected>Select a company first</option>
+            </select>
+            <div class="error-msg"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="year">Year of purchase</label>
+            <select id="year" name="year" required>
+              <option value="" disabled selected>Select year</option>
+              {% for y in range(meta.year_max, meta.year_min - 1, -1) %}
+              <option value="{{ y }}">{{ y }}</option>
+              {% endfor %}
+            </select>
+            <div class="error-msg"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="kms_driven">Kilometres driven</label>
+            <input type="number" id="kms_driven" name="kms_driven"
+                   min="100" max="250000" step="500" placeholder="e.g. 45000" required>
+            <div class="error-msg"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="fuel_type">Fuel type</label>
+            <select id="fuel_type" name="fuel_type" required>
+              <option value="" disabled selected>Select fuel type</option>
+              {% for f in meta.fuel_types %}
+              <option value="{{ f }}">{{ f }}</option>
+              {% endfor %}
+            </select>
+            <div class="error-msg"></div>
+          </div>
+
+        </div>
+
+        <button type="submit" class="btn-primary" id="predict-btn">
+          <span class="btn-text">Predict Price</span>
+          <span class="btn-spinner hidden"></span>
+        </button>
+      </form>
+
+      <!-- prediction result (filled by JavaScript) -->
+      <div class="result-box hidden" id="result-box">
+        <div class="result-label">Estimated market price</div>
+        <div class="result-price" id="result-price">&mdash;</div>
+        <div class="result-note" id="result-note"></div>
+      </div>
+
+      <!-- validation / server error (filled by JavaScript) -->
+      <div class="error-box hidden" id="error-box">
+        <span id="error-text"></span>
+      </div>
+    </section>
+
+    <!-- ================= HOW IT WORKS ================= -->
+    <section class="features">
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <h3>Trained on real listings</h3>
+        <p>{{ meta.train_rows + meta.test_rows }} used-car
+          listings from Quikr.com, cleaned and validated row by row.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🌲</div>
+        <h3>{{ meta.best_model }} model</h3>
+        <p>Three algorithms were compared fairly &mdash; Linear Regression,
+          Random Forest and Extra Trees &mdash; and the best one was saved.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <h3>Instant results</h3>
+        <p>The Flask backend answers your request in milliseconds;
+          no signup, no waiting, works fully offline.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- model list for the JavaScript dropdown filter -->
+  <script id="meta-models" type="application/json">{{ meta.car_models | tojson }}</script>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
